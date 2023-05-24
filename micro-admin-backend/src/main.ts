@@ -9,7 +9,7 @@ async function bootstrap() {
   const app = await NestFactory.createMicroservice(AppModule, {
     transport: Transport.RMQ,
     options: {
-      urls: ['amqp://guicouto:123456@54.221.95.76:5672/smartranking'],
+      urls: [process.env.AMQP_URL],
       queue: 'admin-backend',
       noAck: false, //RabbitMQ so deleta a mensagem no broker depois que devolvermos um "OK" para ele
     },

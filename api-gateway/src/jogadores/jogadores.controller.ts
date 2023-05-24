@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Logger,
+  NotFoundException,
   Param,
   Post,
   Put,
@@ -11,33 +12,30 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import {
-  ClientProxy,
-  ClientProxyFactory,
-  Transport,
-} from '@nestjs/microservices';
 import { CriarJogadorDto } from './dtos/criar-jogador.dto';
 import { AtualizarJogadorDto } from './dtos/atualizar-jogador.dto';
+import { ClientProxySmartRanking } from 'src/proxyrmq/client-proxy';
 
 @Controller('jogadores')
 export class JogadoresController {
   private logger = new Logger(JogadoresController.name);
-  private clientAdminBackend: ClientProxy;
 
-  constructor() {
-    this.clientAdminBackend = ClientProxyFactory.create({
-      transport: Transport.RMQ,
-      options: {
-        urls: ['amqp://guicouto:123456@54.221.95.76:5672/smartranking'],
-        queue: 'admin-backend',
-      },
-    });
-  }
+  constructor(private clientAdminBackend: ClientProxySmartRanking) {}
 
   @Post()
   @UsePipes(ValidationPipe)
   async criarJogador(@Body() criarJogadorDto: CriarJogadorDto) {
-    this.clientAdminBackend.emit('criar-jogador', criarJogadorDto);
+    const categoria = await this.clientAdminBackend
+      .getClientProxyAdminBackendInstance()
+      .send('consultar-categorias', criarJogadorDto.categoria)
+      .toPromise();
+    if (categoria) {
+      this.clientAdminBackend
+        .getClientProxyAdminBackendInstance()
+        .emit('criar-jogador', criarJogadorDto);
+    } else {
+      throw new NotFoundException('Categoria não encontrada');
+    }
   }
 
   @Put('/:_id')
@@ -46,10 +44,20 @@ export class JogadoresController {
     @Body() atualizarJogadorDto: AtualizarJogadorDto,
     @Param('_id') _id: string,
   ) {
-    this.clientAdminBackend.emit('atualizar-jogador', {
-      id: _id,
-      categoria: atualizarJogadorDto,
-    });
+    const categoria = await this.clientAdminBackend
+      .getClientProxyAdminBackendInstance()
+      .send('consultar-categorias', atualizarJogadorDto.categoria)
+      .toPromise();
+    if (categoria) {
+      this.clientAdminBackend
+        .getClientProxyAdminBackendInstance()
+        .emit('atualizar-jogador', {
+          id: _id,
+          jogador: atualizarJogadorDto,
+        });
+    } else {
+      throw new NotFoundException('Categoria não encontrada');
+    }
   }
 
   /*
@@ -59,21 +67,17 @@ export class JogadoresController {
 
   @Get()
   async consultarJogadores(@Query('idJogador') _id: string): Promise<any> {
-    return this.clientAdminBackend.send('consultar-jogadores', _id ? _id : '');
+    return this.clientAdminBackend
+      .getClientProxyAdminBackendInstance()
+      .send('consultar-jogadores', _id ? _id : '');
   }
-
-  /*
-    @Get('/:_id')
-    async consultarJogadorPeloId(
-        @Param('_id', ValidacaoParametrosPipe) _id: string): Promise<Jogador> {
-                return await this.jogadoresService.consultarJogadorPeloId(_id);    
-    }
-    */
 
   @Delete('/:_id')
   async deletarJogador(@Param('_id') _id: string) {
-    this.clientAdminBackend.emit('deletar-jogador', {
-      id: _id,
-    });
+    this.clientAdminBackend
+      .getClientProxyAdminBackendInstance()
+      .emit('deletar-jogador', {
+        id: _id,
+      });
   }
 }

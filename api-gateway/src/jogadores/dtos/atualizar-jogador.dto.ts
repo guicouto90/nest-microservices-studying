@@ -1,4 +1,4 @@
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsOptional } from 'class-validator';
 
 export class AtualizarJogadorDto {
   @IsNotEmpty()
@@ -6,4 +6,7 @@ export class AtualizarJogadorDto {
 
   @IsNotEmpty()
   readonly nome: string;
+
+  @IsOptional()
+  readonly categoria: string;
 }
