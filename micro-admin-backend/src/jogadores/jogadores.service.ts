@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Jogador } from './interfaces/jogador.interface';
-import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Jogador } from './interfaces/jogador.interface';
 import { RpcException } from '@nestjs/microservices';
 
 @Injectable()
@@ -12,31 +12,10 @@ export class JogadoresService {
 
   private readonly logger = new Logger(JogadoresService.name);
 
-  async criarJogador(criaJogadorDto: Jogador): Promise<Jogador> {
-    const { email } = criaJogadorDto;
-
-    const jogadorEncontrado = await this.jogadorModel.findOne({ email }).exec();
-
-    if (jogadorEncontrado) {
-      throw new RpcException(`Jogador com e-mail ${email} já cadastrado`);
-    }
-
-    const jogadorCriado = new this.jogadorModel(criaJogadorDto);
-    return await jogadorCriado.save();
-  }
-
-  async atualizarJogador(
-    _id: string,
-    atualizarJogadorDto: Jogador,
-  ): Promise<void> {
+  async criarJogador(jogador: Jogador): Promise<void> {
     try {
-      const jogadorEncontrado = await this.jogadorModel.findOne({ _id }).exec();
-      if (!jogadorEncontrado) {
-        throw new RpcException(`Jogadodor com id ${_id} não econtrado`);
-      }
-      await this.jogadorModel
-        .findOneAndUpdate({ _id }, { $set: atualizarJogadorDto })
-        .exec();
+      const jogadorCriado = new this.jogadorModel(jogador);
+      await jogadorCriado.save();
     } catch (error) {
       this.logger.error(`error: ${JSON.stringify(error.message)}`);
       throw new RpcException(error.message);
@@ -54,28 +33,42 @@ export class JogadoresService {
 
   async consultarJogadorPeloId(_id: string): Promise<Jogador> {
     try {
-      const jogadorEncontrado = await this.jogadorModel.findOne({ _id }).exec();
-
-      if (!jogadorEncontrado) {
-        throw new RpcException(`Jogador com id ${_id} não encontrado`);
-      }
-
-      return jogadorEncontrado;
+      return this.jogadorModel
+        .findById(_id)
+        .populate('categoria') // Add this line to populate the 'categoria' field
+        .exec();
     } catch (error) {
       this.logger.error(`error: ${JSON.stringify(error.message)}`);
       throw new RpcException(error.message);
     }
   }
 
-  async deletarJogador(_id): Promise<any> {
+  async atualizarJogador(_id: string, jogador: Jogador): Promise<void> {
     try {
-      const jogadorEncontrado = await this.jogadorModel.findOne({ _id }).exec();
+      await this.jogadorModel
+        .findOneAndUpdate({ _id }, { $set: jogador })
+        .exec();
+    } catch (error) {
+      this.logger.error(`error: ${JSON.stringify(error.message)}`);
+      throw new RpcException(error.message);
+    }
+  }
 
-      if (!jogadorEncontrado) {
-        throw new RpcException(`Jogador com id ${_id} não encontrado`);
-      }
+  async uploadFotoJogador(_id: string, url: string): Promise<void> {
+    try {
+      await this.jogadorModel.findOneAndUpdate(
+        { _id },
+        { urlFotoJogador: url },
+      );
+    } catch (error) {
+      this.logger.error(`error: ${JSON.stringify(error.message)}`);
+      throw new RpcException(error.message);
+    }
+  }
 
-      return await this.jogadorModel.deleteOne({ _id }).exec();
+  async deletarJogador(_id): Promise<void> {
+    try {
+      await this.jogadorModel.deleteOne({ _id }).exec();
     } catch (error) {
       this.logger.error(`error: ${JSON.stringify(error.message)}`);
       throw new RpcException(error.message);

@@ -5,6 +5,7 @@ import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ProxyrmqModule } from './proxyrmq/proxyrmq.module';
 import { ConfigModule } from '@nestjs/config';
+import { AwsModule } from './aws/aws.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { ConfigModule } from '@nestjs/config';
     CategoriasModule,
     JogadoresModule,
     ProxyrmqModule,
+    AwsModule,
   ],
   controllers: [],
   providers: [TimeoutInterceptor, LoggingInterceptor],

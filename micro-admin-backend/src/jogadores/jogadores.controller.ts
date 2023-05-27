@@ -1,91 +1,104 @@
 import { Controller, Logger } from '@nestjs/common';
+import { JogadoresService } from './jogadores.service';
 import {
-  Ctx,
   EventPattern,
-  MessagePattern,
   Payload,
+  Ctx,
   RmqContext,
+  MessagePattern,
 } from '@nestjs/microservices';
 import { Jogador } from './interfaces/jogador.interface';
-import { JogadoresService } from './jogadores.service';
-
 const ackErrors: string[] = ['E11000'];
-
-@Controller('jogadores')
+@Controller()
 export class JogadoresController {
-  constructor(private readonly jogadorService: JogadoresService) {}
-
-  private logger = new Logger(JogadoresController.name);
-
-  @EventPattern('criar-jogador') //event listener
+  logger = new Logger(JogadoresController.name);
+  constructor(private readonly jogadoresService: JogadoresService) {}
+  @EventPattern('criar-jogador')
   async criarJogador(@Payload() jogador: Jogador, @Ctx() context: RmqContext) {
-    const channel = context.getChannelRef(); // canal de referencia do RabbitMQ
-    const originalMessage = context.getMessage(); // mensagem original
-
-    this.logger.log(`jogador: ${JSON.stringify(jogador)}`);
+    const channel = context.getChannelRef();
+    const originalMsg = context.getMessage();
     try {
-      await this.jogadorService.criarJogador(jogador);
-      await channel.ack(originalMessage);
+      this.logger.log(`jogador: ${JSON.stringify(jogador)}`);
+      await this.jogadoresService.criarJogador(jogador);
+      await channel.ack(originalMsg);
     } catch (error) {
-      this.logger.error(`error: ${JSON.stringify(error)}`);
-      const [filterAckError] = ackErrors.filter((ackError) =>
+      this.logger.log(`error: ${JSON.stringify(error.message)}`);
+      const filterAckError = ackErrors.filter((ackError) =>
         error.message.includes(ackError),
       );
-      if (filterAckError) await channel.ack(originalMessage);
+
+      if (filterAckError.length > 0) {
+        await channel.ack(originalMsg);
+      }
     }
   }
-
   @MessagePattern('consultar-jogadores')
-  async consultarJogadores(
-    @Payload() _id: string,
-    @Ctx() context: RmqContext,
-  ): Promise<Jogador[] | Jogador> {
-    const channel = context.getChannelRef(); // canal de referencia do RabbitMQ
-    const originalMessage = context.getMessage(); // mensagem original
+  async consultarJogadores(@Payload() _id: string, @Ctx() context: RmqContext) {
+    const channel = context.getChannelRef();
+    const originalMsg = context.getMessage();
     try {
       if (_id) {
-        return this.jogadorService.consultarJogadorPeloId(_id);
+        return await this.jogadoresService.consultarJogadorPeloId(_id);
       } else {
-        return this.jogadorService.consultarTodosJogadores();
+        return await this.jogadoresService.consultarTodosJogadores();
       }
     } finally {
-      await channel.ack(originalMessage);
+      await channel.ack(originalMsg);
     }
   }
-
-  @EventPattern('atualizar-jogador') //event listener
+  @EventPattern('atualizar-jogador')
   async atualizarJogador(@Payload() data: any, @Ctx() context: RmqContext) {
-    const channel = context.getChannelRef(); // canal de referencia do RabbitMQ
-    const originalMessage = context.getMessage(); // mensagem original
-
-    this.logger.log(`jogador: ${JSON.stringify(data)}`);
+    const channel = context.getChannelRef();
+    const originalMsg = context.getMessage();
     try {
-      await this.jogadorService.atualizarJogador(data.id, data.jogador);
-      await channel.ack(originalMessage);
+      console.log(`data: ${JSON.stringify(data)}`);
+      const _id: string = data.id;
+      const jogador: Jogador = data.jogador;
+      await this.jogadoresService.atualizarJogador(_id, jogador);
+      await channel.ack(originalMsg);
     } catch (error) {
-      this.logger.error(`error: ${JSON.stringify(error)}`);
-      const [filterAckError] = ackErrors.filter((ackError) =>
+      const filterAckError = ackErrors.filter((ackError) =>
         error.message.includes(ackError),
       );
-      if (filterAckError) await channel.ack(originalMessage);
+      if (filterAckError.length > 0) {
+        await channel.ack(originalMsg);
+      }
     }
   }
 
-  @EventPattern('deletar-jogador') //event listener
-  async deletarJogador(@Payload() data: any, @Ctx() context: RmqContext) {
-    const channel = context.getChannelRef(); // canal de referencia do RabbitMQ
-    const originalMessage = context.getMessage(); // mensagem original
-
-    this.logger.log(`jogador: ${JSON.stringify(data)}`);
+  @EventPattern('upload-foto-jogador')
+  async uploadFotoJogador(@Payload() data: any, @Ctx() context: RmqContext) {
+    const channel = context.getChannelRef();
+    const originalMsg = context.getMessage();
     try {
-      await this.jogadorService.deletarJogador(data.id);
-      await channel.ack(originalMessage);
+      console.log(`data: ${JSON.stringify(data)}`);
+      await this.jogadoresService.uploadFotoJogador(data.id, data.url);
+      await channel.ack(originalMsg);
     } catch (error) {
-      this.logger.error(`error: ${JSON.stringify(error)}`);
-      const [filterAckError] = ackErrors.filter((ackError) =>
+      const filterAckError = ackErrors.filter((ackError) =>
         error.message.includes(ackError),
       );
-      if (filterAckError) await channel.ack(originalMessage);
+      if (filterAckError.length > 0) {
+        await channel.ack(originalMsg);
+      }
+    }
+  }
+
+  @EventPattern('deletar-jogador')
+  async deletarJogador(@Payload() _id: string, @Ctx() context: RmqContext) {
+    const channel = context.getChannelRef();
+    const originalMsg = context.getMessage();
+    try {
+      await this.jogadoresService.deletarJogador(_id);
+      await channel.ack(originalMsg);
+    } catch (error) {
+      const filterAckError = ackErrors.filter((ackError) =>
+        error.message.includes(ackError),
+      );
+
+      if (filterAckError.length > 0) {
+        await channel.ack(originalMsg);
+      }
     }
   }
 }
