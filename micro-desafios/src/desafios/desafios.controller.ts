@@ -1,26 +1,27 @@
 import { Controller, Logger } from '@nestjs/common';
-import { JogadoresService } from './jogadores.service';
+import { DesafiosService } from './desafios.service';
 import {
-  EventPattern,
-  Payload,
   Ctx,
-  RmqContext,
+  EventPattern,
   MessagePattern,
+  Payload,
+  RmqContext,
 } from '@nestjs/microservices';
-import { Jogador } from './interfaces/jogador.interface';
+import { Desafio } from './interfaces/desafio.interface';
 const ackErrors: string[] = ['E11000'];
-@Controller()
-export class JogadoresController {
-  logger = new Logger(JogadoresController.name);
-  constructor(private readonly jogadoresService: JogadoresService) {}
 
-  @EventPattern('criar-jogador')
-  async criarJogador(@Payload() jogador: Jogador, @Ctx() context: RmqContext) {
+@Controller()
+export class DesafiosController {
+  logger = new Logger(DesafiosController.name);
+  constructor(private readonly desafioService: DesafiosService) {}
+
+  @EventPattern('criar-desafio')
+  async criarJogador(@Payload() desafio: Desafio, @Ctx() context: RmqContext) {
     const channel = context.getChannelRef();
     const originalMsg = context.getMessage();
     try {
-      this.logger.log(`jogador: ${JSON.stringify(jogador)}`);
-      await this.jogadoresService.criarJogador(jogador);
+      this.logger.log(`desafio: ${JSON.stringify(desafio)}`);
+      await this.desafioService.criarDesafio(desafio);
       await channel.ack(originalMsg);
     } catch (error) {
       this.logger.log(`error: ${JSON.stringify(error.message)}`);
@@ -34,29 +35,35 @@ export class JogadoresController {
     }
   }
 
-  @MessagePattern('consultar-jogadores')
-  async consultarJogadores(@Payload() _id: string, @Ctx() context: RmqContext) {
+  @MessagePattern('consultar-desafios')
+  async consultarJogadores(@Payload() data: any, @Ctx() context: RmqContext) {
     const channel = context.getChannelRef();
     const originalMsg = context.getMessage();
     try {
-      if (_id) {
-        return await this.jogadoresService.consultarJogadorPeloId(_id);
+      if (data._id) {
+        return await this.desafioService.consultarDesafioPorId(data._id);
+      } else if (data.idJogador) {
+        return await this.desafioService.consultarDesafiosDeUmJogador(
+          data.idJogador,
+        );
       } else {
-        return await this.jogadoresService.consultarTodosJogadores();
+        return await this.desafioService.consultarTodosDesafios();
       }
     } finally {
       await channel.ack(originalMsg);
     }
   }
-  @EventPattern('atualizar-jogador')
+  @EventPattern('atualizar-desafio')
   async atualizarJogador(@Payload() data: any, @Ctx() context: RmqContext) {
     const channel = context.getChannelRef();
     const originalMsg = context.getMessage();
     try {
       console.log(`data: ${JSON.stringify(data)}`);
-      const _id: string = data.id;
-      const jogador: Jogador = data.jogador;
-      await this.jogadoresService.atualizarJogador(_id, jogador);
+      await this.desafioService.atualizarDesafio(
+        data._id,
+        data.dataHoraDesafio,
+        data.status,
+      );
       await channel.ack(originalMsg);
     } catch (error) {
       const filterAckError = ackErrors.filter((ackError) =>
@@ -68,13 +75,16 @@ export class JogadoresController {
     }
   }
 
-  @EventPattern('upload-foto-jogador')
+  @EventPattern('atualizar-desafio-partida')
   async uploadFotoJogador(@Payload() data: any, @Ctx() context: RmqContext) {
     const channel = context.getChannelRef();
     const originalMsg = context.getMessage();
     try {
       console.log(`data: ${JSON.stringify(data)}`);
-      await this.jogadoresService.uploadFotoJogador(data.id, data.url);
+      await this.desafioService.atribuirDesafioPartida(
+        data.idPartida,
+        data.desafio,
+      );
       await channel.ack(originalMsg);
     } catch (error) {
       const filterAckError = ackErrors.filter((ackError) =>
@@ -86,12 +96,12 @@ export class JogadoresController {
     }
   }
 
-  @EventPattern('deletar-jogador')
+  @EventPattern('deletar-desafio')
   async deletarJogador(@Payload() _id: string, @Ctx() context: RmqContext) {
     const channel = context.getChannelRef();
     const originalMsg = context.getMessage();
     try {
-      await this.jogadoresService.deletarJogador(_id);
+      await this.desafioService.deletarDesafio(_id);
       await channel.ack(originalMsg);
     } catch (error) {
       const filterAckError = ackErrors.filter((ackError) =>

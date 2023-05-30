@@ -67,11 +67,6 @@ export class JogadoresController {
     }
   }
 
-  /*
-    Desafio
-    Passamos a utilizar query parameters com o verbo GET
-    */
-
   @Get()
   async consultarJogadores(@Query('idJogador') _id: string): Promise<any> {
     return this.clientAdminBackend
